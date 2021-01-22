@@ -20,25 +20,16 @@ var s3 = new AWS.S3({
     region: 'eu-central-1'
 });
 
-app.post('/download', function (request, response) {
-  console.log("app is running") ;
-     var params = request.body.files;
-//     var params = [{key: "ef964860-9799-40cf-975f-73a13c7a9ab0/AnyDesk (3) (1) (1).exe",
-// name: "AnyDesk (3) (1) (1).exe"},{
-//     key: "ef964860-9799-40cf-975f-73a13c7a9ab0/uploading (1) (3) (1) (2).svg",
-//     name:"uploading (1) (3) (1) (2).svg"
-// },
-// {
-//     key: "ef964860-9799-40cf-975f-73a13c7a9ab0/copyright-symbol (1).svg",
-//     name: "copyright-symbol (1).svg"
-// },
-// {
-//     key:"ef964860-9799-40cf-975f-73a13c7a9ab0/python-2.7.18.amd64.msi",
-//     name:"python-2.7.18.amd64.msi"
-// }
-//     ];
-    const s3FileDwnldStreams = params.map(item => {
-        const stream = s3.getObject({ Bucket: 'fileable-quick-transfer',Key: item.key }).createReadStream();
+app.get('/download', async function (request, response) {
+  
+     var params = request.query.downloadFiles;
+   
+     const res = await axios.get(`https://wlebqx4mhj.execute-api.us-east-1.amazonaws.com/quickTransfer/getFilesByLink?sessionId=${params}`);
+    const fileList = res.data.fileList ;
+    
+         const s3FileDwnldStreams = fileList.map(item => {
+     
+        const stream = s3.getObject({ Bucket: 'fileable-quick-transfer',Key: `${params}/${item.name}`}).createReadStream();
         return {
           stream,
           fileName: item.name,
@@ -69,4 +60,6 @@ app.post('/download', function (request, response) {
   });
 
 
-app.listen(3000);
+app.listen(3000,'0.0.0.0',()=>{
+  console.log('listening on port 3000');
+});
