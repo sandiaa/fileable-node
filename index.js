@@ -1,16 +1,23 @@
 var express = require('express');
 var app = express();
+var util = require('util');
+var exec = util.promisify(require('child_process').exec);
+var https = require('https');
+var fs = require('fs');
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 var Archiver = require('archiver');
 var AWS = require("aws-sdk");
 var axios = require("axios");
-//var createReadStream = require("fs");
 var Stream = require("stream");
 var accessKeyId =  "";
 var secretAccessKey = "";
-
+var key = fs.readFileSync('../selfsigned.key');
+var cert = fs.readFileSync('../selfsigned.crt');
+var options = {
+key: key,
+cert: cert};
 AWS.config.update({
     accessKeyId: accessKeyId,
     secretAccessKey: secretAccessKey
@@ -20,46 +27,22 @@ var s3 = new AWS.S3({
     region: 'eu-central-1'
 });
 
+async function shellExec(id){
+
+await exec(`aws s3 sync s3://fileable-quick-transfer/${id} ${id}`);
+await exec(`zip -r ${id}.zip ${id}`);
+await exec(`aws s3 cp ${id}.zip s3://fileable-quick-transfer/zipped/${id}.zip`);
+await exec(`rm -r ${id}.zip ${id}`);
+return "done";
+}
 app.get('/download', async function (request, response) {
   
      var params = request.query.downloadFiles;
-   
-     const res = await axios.get(`https://wlebqx4mhj.execute-api.us-east-1.amazonaws.com/quickTransfer/getFilesByLink?sessionId=${params}`);
-    const fileList = res.data.fileList ;
-    
-         const s3FileDwnldStreams = fileList.map(item => {
-     
-        const stream = s3.getObject({ Bucket: 'fileable-quick-transfer',Key: `${params}/${item.name}`}).createReadStream();
-        return {
-          stream,
-          fileName: item.name,
-        };
-      });
+var res = await shellExec(params);
+ response.json({ zipped: 'true' })  
+ });
 
-      const streamPassThrough = new Stream.PassThrough();
-     
-    var filename = 'fileable.zip';
-  
-    response.attachment(filename);
-  
-    const zip = Archiver("zip",{
-        zlib: { level: 1 }
-    });
-     
-    zip.on('finish', function(error) {
-      return response.end();
-    });
-    zip.pipe(response);
-    s3FileDwnldStreams.forEach(s3FileDwnldStream => {
-      zip.append(s3FileDwnldStream.stream, {
-        name: s3FileDwnldStream.fileName,
-      });
-    });
-  
-    zip.finalize();
-  });
-
-
-app.listen(3000,'0.0.0.0',()=>{
+var server = https.createServer(options,app);
+server.listen(3000,'0.0.0.0',()=>{
   console.log('listening on port 3000');
 });
