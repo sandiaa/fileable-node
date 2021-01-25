@@ -1,4 +1,5 @@
 var express = require('express');
+
 var app = express();
 var util = require('util');
 var exec = util.promisify(require('child_process').exec);
@@ -29,7 +30,7 @@ var s3 = new AWS.S3({
 
 async function shellExec(id){
 
-await exec(`aws s3 sync s3://fileable-quick-transfer/${id} ${id}`);
+await exec(`aws s3 cp s3://fileable-quick-transfer/${id} ${id} --recursive`);
 await exec(`zip -r ${id}.zip ${id}`);
 await exec(`aws s3 cp ${id}.zip s3://fileable-quick-transfer/zipped/${id}.zip`);
 await exec(`rm -r ${id}.zip ${id}`);
